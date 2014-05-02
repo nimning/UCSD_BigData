@@ -5,6 +5,7 @@ from boto.s3.connection import S3Connection
 #[Credentials]
 #aws_access_key_id = xxxxxxxxxxxxxxxxxxxx
 #aws_secret_access_key = xxxxxxxxxxxxxxxxxxxxxx
+import ../LocalScripts/AWSCredentials.py
 
 conn=S3Connection()
 rs = conn.get_all_buckets()
