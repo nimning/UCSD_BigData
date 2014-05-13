@@ -37,8 +37,8 @@ Here are the steps you need to follow to achieve this
 """
 
 from AWSCredentials import *
-ami='ami-a0db3dc8'             # Image configured for big data class
-# AMI name: mrjob. These two lines last updated 5/1/2014
+ami='ami-18d33e70'             # Image configured for big data class
+# AMI name: ERM_Utils These two lines last updated 5/11/2014
 
 # ### Definitions of procedures ###
 import boto.ec2
@@ -95,10 +95,12 @@ def set_credentials():
     
 
 def copy_credentials(LocalDir):
+    from glob import glob
     print 'Entered copy_credentials:',LocalDir
     mkdir=['mkdir','Vault']
     Send_Command(mkdir,emptyCallBack,dont_wait=True)
-    scp=['scp','-i',keyPairFile,('%s/AWSCredentials.py' % args['Copy_Credentials']),('%s@%s:Vault/' % (login_id,instance.public_dns_name))]
+    list=glob(args['Copy_Credentials'])
+    scp=['scp','-i',keyPairFile]+list+[('%s@%s:Vault/' % (login_id,instance.public_dns_name))]
     print ' '.join(scp)
     subprocess.call(scp)
 
@@ -107,6 +109,12 @@ def set_password(password):
         sys.exit('Password must be at least 6 characters long')
     command=["scripts/SetNotebookPassword.py",password]
     Send_Command(command,emptyCallBack)
+
+def create_image(image_name):
+    #delete the Vault directory, where all of the secret keys and passwords reside.
+    delete_Vault=['rm','-r','~/Vault']
+    Send_Command(delete_Vault,emptyCallBack)
+    instance.create_image(args['create_image'])
 
 def Send_Command(command,callback,dont_wait=False):
     init=time.time()
@@ -244,7 +252,7 @@ if __name__ == "__main__":
 
     if(args['create_image'] != None):
         print "creating a new AMI called",args['create_image']
-        instance.create_image(args['create_image'])
+        create_image(args['create_image'])
 
     if(args['Copy_Credentials']!= None):
        copy_credentials(args['Copy_Credentials'])
