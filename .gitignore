@@ -1,3 +1,4 @@
 *.pyc
 LocalScripts/AWSCredentials.*
 *.DS_Store
+Self/*
