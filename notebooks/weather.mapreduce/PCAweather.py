@@ -16,32 +16,33 @@ class PCAWEATHER(MRJob):
         if len(stationinfo) != 0 and elements[1] == 'TMAX':
             #issues here?????
             leaflabel = stationinfo.iloc[0]['leaflabel']
-            yeardata = pd.DataFrame(elements[3:])
-            #print yeardata
-            yeardata[yeardata == ''] = float('NaN')
-            yeardata = yeardata.astype(float)
-            mean = np.mean(yeardata)
-            row = yeardata - mean
-            outer = np.outer(row, row).tolist()
-            yield leaflabel, outer
-    
-    def reducer(self, leaflabel, vect_covmatrices):
-        covmatrices = list(vect_covmatrices)
-        #NaN-tolerant averaging
-        C = np.zeros(np.shape(covmatrices[0]))
-        N = np.zeros(np.shape(covmatrices[0]))
-        for covmatrix in covmatrices:
-            outer = np.array(covmatrix)
+            yeardata = elements[3:]
+            yield leaflabel, yeardata
+            
+    def reducer(self, leaflabel, yeardatamatrix):
+        M = pd.DataFrame(yeardatamatrix)
+        (rows,columns)= np.shape(M)
+        M[M == ''] = float('NaN')
+        M = M.astype(float)
+        M = M.transpose()
+        Mean = np.mean(M, axis=1).values
+        C=np.zeros([columns,columns])  
+        N=np.zeros([columns,columns])
+
+        for i in range(rows):
+            row = M.iloc[:,i] - Mean
+            outer = np.outer(row,row)
             valid = np.isnan(outer) == False
-            C[valid] = C[valid] + outer[valid]
-            N[valid] = N[valid] + 1    
-        valid_outer = np.multiply(1-np.isnan(N), N>0)
-        cov = np.divide(C, N)
+            C[valid] = C[valid]+ outer[valid]
+            N[valid] = N[valid]+ 1
+            
+        valid_outer = np.multiply(1 - np.isnan(N),N>0)
+        cov = np.divide(C,N)
         cov = np.multiply(cov, valid_outer)
         U, D, V = np.linalg.svd(cov)
-        cum_sum = np.cumsum(D[:])/sum(D)
+        cum_sum = np.cumsum(D[:])/np.sum(D)
         for i in range(len(cum_sum)):
-            if cum_sum[i] >= 0.95:
+            if cum_sum[i] >= 0.99:
                 num_valideig = i 
                 break
         yield leaflabel, num_valideig
