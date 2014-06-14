@@ -8,18 +8,26 @@ import random
 labeled_Djoined = pd.read_csv('labeled_Djoined.csv')
 
 class PCAWEATHER(MRJob):
-
+    
     def mapper(self, _, line):
-        elements = line.split(',')
-        stationinfo = labeled_Djoined[labeled_Djoined['station'] == elements[0]]
-        #can find the station and TMAX measurment
-        if len(stationinfo) != 0 and elements[1] == 'TMAX':
-            #issues here?????
-            leaflabel = stationinfo.iloc[0]['leaflabel']
-            yeardata = elements[3:]
+        try:
+            self.increment_counter('MrJob Counters','mapper-all',1)
+            elements = line.split(',')
+            stationinfo = labeled_Djoined[labeled_Djoined['station'] == elements[0]]
+            #can find the station and TMAX measurment
+            if len(stationinfo) != 0 and elements[1] == 'TMAX':
+                leaflabel = stationinfo.iloc[0]['leaflabel']
+                yeardata = elements[3:]
+        except Exception, e:
+            stderr.write('Error in line:\n'+line)
+            stderr.write(e)
+            self.increment_counter('MrJob Counters','mapper-error',1)
+        finally:
             yield leaflabel, yeardata
+
             
-    def reducer(self, leaflabel, yeardatamatrix):
+    def combiner(self, leaflabel, yeardatamatrix):
+        self.increment_counter('MrJob Counters','combiner',1)
         M = pd.DataFrame(yeardatamatrix)
         (rows,columns)= np.shape(M)
         M[M == ''] = float('NaN')
@@ -41,6 +49,11 @@ class PCAWEATHER(MRJob):
         cov = np.multiply(cov, valid_outer)
         U, D, V = np.linalg.svd(cov)
         cum_sum = np.cumsum(D[:])/np.sum(D)
+        yield leaflabel, cum_sum
+        
+    def reducer(self, leaflabel, cum_sum):
+        self.increment_counter('MrJob Counters','reducer',1)
+        cum_sum = list(cum_sum)
         for i in range(len(cum_sum)):
             if cum_sum[i] >= 0.99:
                 num_valideig = i 
